@@ -1,0 +1,210 @@
+@import 'tailwindcss';
+
+/*
+ * Legendary Kits POS. Same plain style as SynFlow: black on white, grey bands, one green for "done",
+ * red for errors. Mobile first: 16px text and large touch targets on phones; denser on a PC.
+ */
+@theme {
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: #ffffff;
+    color: #111111;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (min-width: 1024px) {
+    body {
+      font-size: 14px;
+    }
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  select,
+  textarea {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    width: 100%;
+  }
+  textarea {
+    padding: 8px 12px;
+  }
+  @media (min-width: 1024px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    select {
+      min-height: 34px;
+    }
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 1px;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: #111111;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid #cccccc;
+  background: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:active {
+  background: #f2f2f2;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+.btn-primary:active {
+  background: #000000;
+}
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.btn-danger {
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+@media (min-width: 1024px) {
+  .btn {
+    min-height: 34px;
+    padding: 0 12px;
+  }
+}
+
+.band {
+  background: #ededed;
+  border-bottom: 1px solid #dddddd;
+}
+
+/* Message bar under the top bar: green when done, red for an error. */
+.message-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-weight: 700;
+  border-bottom: 1px solid;
+}
+.message-bar.is-success {
+  background: #cfeaa8;
+  border-color: #8cc152;
+  color: #1e4d0f;
+}
+.message-bar.is-info {
+  background: #eef3fb;
+  border-color: #b8c7e0;
+  color: #23395d;
+}
+.message-bar.is-error {
+  background: #fbe3e3;
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+/* Compact lists */
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.grid-table th {
+  text-align: left;
+  font-weight: 700;
+  background: #f2f2f2;
+  border-bottom: 1px solid #cccccc;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.grid-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eeeeee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 18rem;
+}
+.grid-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+.grid-table tbody tr.clickable {
+  cursor: pointer;
+}
+.grid-table tbody tr.clickable:hover {
+  background: #f0f0f0;
+}
+.grid-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 1024px) {
+  .grid-table {
+    font-size: 13px;
+  }
+  .grid-table td,
+  .grid-table th {
+    padding: 4px 8px;
+  }
+}
+
+.thumb {
+  background: #f2f2f2;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
