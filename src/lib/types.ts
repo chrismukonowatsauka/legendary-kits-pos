@@ -46,13 +46,27 @@ export interface Customer extends Base {
   notes?: string;
 }
 
-export interface SaleLine {
+/** What one shirt actually cost, kept on the line so the margin is true whatever it sold for. */
+export interface LineCosts {
+  /** Kit cost from the supplier. */
+  unitCost?: number;
+  /** Printing the name/number on one shirt. */
+  printCost?: number;
+  /** The patch(es) on one shirt. */
+  patchCost?: number;
+}
+
+export interface SaleLine extends LineCosts {
   productId: string;
   name: string;
   code: string;
   size?: string;
   qty: number;
+  /** Selling price per shirt, everything included (prices aren't fixed: editable on every sale). */
   price: number;
+  printName?: string;
+  printNumber?: string;
+  patchId?: string;
 }
 export interface Sale extends Base {
   number: string;
@@ -70,6 +84,8 @@ export interface Sale extends Base {
   status: 'completed' | 'voided';
   voidReason?: string;
   soldBy?: string;
+  /** Bags, boxes etc. for this sale: cost of sales, not an expense. */
+  packagingCost?: number;
 }
 
 /** Money received from a customer: against their account balance or as an order deposit. */
@@ -103,7 +119,7 @@ export interface Transfer extends Base {
 }
 
 export type OrderStatus = 'Open' | 'Ordered' | 'Received' | 'Delivered' | 'Cancelled';
-export interface OrderLine {
+export interface OrderLine extends LineCosts {
   key: string;
   productId: string;
   version: string;
@@ -128,6 +144,8 @@ export interface SalesOrder extends Base {
   status: OrderStatus;
   supplierOrderId?: string;
   notes?: string;
+  /** Packaging for this order: cost of sales, not an expense. */
+  packagingCost?: number;
 }
 
 export interface SupplierLine {
@@ -177,4 +195,6 @@ export interface Settings {
   versions: string[];
   expenseCategories: string[];
   seller: string;
+  /** Usual cost of printing a name and/or number on one shirt; filled in on new lines, editable per line. */
+  printCost: number;
 }

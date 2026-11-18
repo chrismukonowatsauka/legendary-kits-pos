@@ -1,6 +1,6 @@
 {
-  "name": "Legendary Kits POS",
-  "short_name": "Kits POS",
+  "name": "SynFlow",
+  "short_name": "SynFlow",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

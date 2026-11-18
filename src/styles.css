@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Legendary Kits POS. Same plain style as SynFlow: black on white, grey bands, one green for "done",
+ * SynFlow (kit shop). Same plain style as the SynFlow ERP: black on white, grey bands, one green for "done",
  * red for errors. Mobile first: 16px text and large touch targets on phones; denser on a PC.
  */
 @theme {

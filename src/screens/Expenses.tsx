@@ -7,7 +7,8 @@ import { ListTable } from '../components/ListTable';
 
 /** Quick expense posting: amount on the numpad, what it was for, and the account it was paid from. */
 export const Expenses: React.FC = () => {
-  const { data, save, notify, settings, ensureHistory, remove } = useStore();
+  const { data, save, notify, settings, saveSettings, ensureHistory, remove } = useStore();
+  const [newCat, setNewCat] = useState<string | null>(null);
   const accounts = data.accounts.filter((a) => a.active !== false);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(settings.expenseCategories[0] || 'Other');
@@ -22,9 +23,26 @@ export const Expenses: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from]);
   const amt = round2(parseFloat(amount || '0') || 0);
+  // Descriptions used before, this category's first and most used first, written the way they were first typed.
+  const suggestions = (() => {
+    const count = new Map<string, { text: string; n: number; same: boolean }>();
+    data.expenses.forEach((e) => {
+      const t = (e.description || '').trim();
+      if (!t || t === e.category) return;
+      const k = t.toLowerCase();
+      const c = count.get(k) || { text: t, n: 0, same: false };
+      c.n++;
+      c.same ||= e.category === category;
+      count.set(k, c);
+    });
+    return [...count.values()].sort((a, b) => Number(b.same) - Number(a.same) || b.n - a.n).map((c) => c.text);
+  })();
 
   const post = () => {
-    const e = save('expenses', { number: docNo('E'), date, category, description: description.trim() || category, amount: amt, accountId });
+    // Match an earlier description's spelling, so "tiktok ads" and "TikTok ads" total together.
+    const typed = description.trim();
+    const known = suggestions.find((s) => s.toLowerCase() === typed.toLowerCase());
+    const e = save('expenses', { number: docNo('E'), date, category, description: known || typed || category, amount: amt, accountId });
     notify(`Expense ${e.number} posted: ${money(amt)} from ${accounts.find((a) => a.id === accountId)?.name}.`);
     setAmount('');
     setDescription('');
@@ -40,17 +58,46 @@ export const Expenses: React.FC = () => {
         <section className="space-y-3 border border-[#e5e5e5] rounded-[8px] p-3 self-start">
           <h2 className="font-bold">Post an expense</h2>
           <Numpad decimals value={amount} onChange={setAmount} />
-          <Field label="What for">
+          <Field label="Category">
             <div className="flex flex-wrap gap-2">
               {settings.expenseCategories.map((c) => (
                 <button key={c} type="button" className={`btn ${category === c ? 'btn-primary' : ''}`} onClick={() => setCategory(c)}>
                   {c}
                 </button>
               ))}
+              {newCat === null ? (
+                <button type="button" className="btn btn-ghost underline" onClick={() => setNewCat('')}>
+                  + New category
+                </button>
+              ) : (
+                <span className="flex gap-1">
+                  <input autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Category name" className="w-[160px]!" />
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!newCat.trim() || settings.expenseCategories.some((c) => c.toLowerCase() === newCat.trim().toLowerCase())}
+                    onClick={() => {
+                      const c = newCat.trim();
+                      const list = [...settings.expenseCategories];
+                      list.splice(Math.max(0, list.indexOf('Other')), 0, c);
+                      saveSettings({ expenseCategories: list.includes('Other') ? list : [...settings.expenseCategories, c] });
+                      setCategory(c);
+                      setNewCat(null);
+                    }}
+                  >
+                    Add
+                  </button>
+                </span>
+              )}
             </div>
           </Field>
-          <Field label="Details (optional)">
-            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Delivery to Avondale" />
+          <Field label="Description" hint="Pick a description you've used before so totals group together.">
+            <input list="expense-descriptions" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. TikTok ads" autoComplete="off" />
+            <datalist id="expense-descriptions">
+              {suggestions.map((d) => (
+                <option key={d} value={d} />
+              ))}
+            </datalist>
           </Field>
           <Field label="Paid from">
             <div className="grid grid-cols-2 gap-2">

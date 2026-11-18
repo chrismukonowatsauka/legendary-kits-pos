@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../lib/store';
 import { daysAgo, money, monthStart, today } from '../lib/format';
+import { saleMargin } from '../lib/ledger';
 import type { Sale } from '../lib/types';
 import { DateRange, ScreenBar } from '../components/ui';
 import { ListTable } from '../components/ListTable';
@@ -52,7 +53,10 @@ export const SalesHistory: React.FC = () => {
               {l}
             </button>
           ))}
-          <span className="ml-auto self-center font-bold">Total {money(total)}</span>
+          <span className="ml-auto self-center font-bold">
+            Total {money(total)}
+            {kind !== 'voided' && <span className="font-normal text-[#555555]"> · Margin {money(rows.reduce((s, x) => s + saleMargin(x, data.products), 0))}</span>}
+          </span>
         </div>
         <ListTable
           rows={rows}
@@ -68,6 +72,7 @@ export const SalesHistory: React.FC = () => {
             { header: 'Items', value: (s) => s.lines.reduce((n, l) => n + l.qty, 0), num: true, wide: true },
             { header: 'Paid Into', value: (s) => accName(s.accountId), wide: true },
             { header: 'On Account', value: (s) => s.onAccount, money: true, wide: true },
+            { header: 'Margin', value: (s) => saleMargin(s, data.products), money: true, wide: true },
             { header: 'Total', value: (s) => s.total, money: true },
           ]}
         />

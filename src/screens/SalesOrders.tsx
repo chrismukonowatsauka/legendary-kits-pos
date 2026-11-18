@@ -2,10 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { FileSpreadsheet, Plus, Share2, Trash2, Truck } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { docNo, money, round2, today, uid } from '../lib/format';
-import { lineTotal, mergeForSupplier, orderPaid, orderTotal, supplierLineTotal } from '../lib/ledger';
+import { lineTotal, mergeForSupplier, orderMargin, orderPaid, orderTotal, supplierLineTotal, unitCostOf } from '../lib/ledger';
 import { exportSupplierSheet } from '../lib/excel';
-import { canvasToPdf, canvasToPng, renderOrder } from '../lib/share';
-import { shareToWhatsApp } from '../lib/files';
+import { canvasToPng, renderOrder } from '../lib/share';
+import { shareFile, shareToWhatsApp } from '../lib/files';
+import { orderReceipt, receiptPdf } from '../lib/receipt';
 import type { OrderLine, OrderStatus, SalesOrder } from '../lib/types';
 import { Field, Modal, ScreenBar, Thumb } from '../components/ui';
 import { ListTable } from '../components/ListTable';
@@ -67,6 +68,7 @@ export const SalesOrders: React.FC<{ goSupplierOrders: () => void }> = ({ goSupp
             { header: 'Items', value: (o) => o.lines.reduce((n, l) => n + l.qty, 0), num: true },
             { header: 'Status', value: (o) => o.status },
             { header: 'Paid', value: (o) => orderPaid(o, data.payments), money: true, wide: true },
+            { header: 'Margin', value: (o) => orderMargin(o, data.products), money: true, wide: true },
             { header: 'Total', value: (o) => o.total, money: true },
           ]}
         />
@@ -181,6 +183,16 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
   const total = orderTotal(o.lines);
   const paid = order ? orderPaid(order, data.payments) : 0;
   const setLine = (i: number, patch: Partial<OrderLine>) => setO((x) => ({ ...x, lines: x.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
+  // A name or number typed for the first time fills in the usual printing cost; clearing both removes it.
+  const setPrint = (i: number, patch: Partial<OrderLine>) => {
+    const l = o.lines[i];
+    const had = !!(l.printName || l.printNumber);
+    const next = { ...l, ...patch };
+    const has = !!(next.printName || next.printNumber);
+    setLine(i, { ...patch, ...(!had && has && !l.printCost ? { printCost: settings.printCost || 0 } : {}), ...(had && !has ? { printCost: 0 } : {}) });
+  };
+  const lineMargin = (l: OrderLine) => round2(lineTotal(l) - l.qty * unitCostOf(l, data.products));
+  const orderMarginNow = round2(o.lines.reduce((s, l) => s + lineMargin(l), 0) - (o.packagingCost || 0));
   const valid = o.customerName.trim() && o.lines.length > 0 && o.lines.every((l) => l.productId && l.qty > 0);
 
   const persist = (patch: Partial<SalesOrder> = {}) => {
@@ -200,12 +212,18 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
     const saved = persist();
     setBusy(kind === 'png' ? 'Making the picture…' : 'Making the PDF…');
     try {
-      const canvas = await renderOrder(saved, data.products, data.patches, settings.shopName, conn);
-      const blob = kind === 'png' ? await canvasToPng(canvas) : await canvasToPdf(canvas);
       const text = `${settings.shopName}: order ${saved.number} for ${saved.customerName}, total ${money(saved.total)}.`;
-      await shareToWhatsApp(blob, `${saved.number}.${kind}`, text, saved.phone);
+      if (kind === 'png') {
+        const canvas = await renderOrder(saved, data.products, data.patches, settings.shopName, conn);
+        await shareToWhatsApp(await canvasToPng(canvas), `${saved.number}.png`, text, saved.phone);
+      } else {
+        // Text-based PDF (copyable) with the kit photos, through the share menu.
+        const blob = await receiptPdf(orderReceipt(saved, data.products, data.patches, settings.shopName, orderPaid(saved, data.payments)), conn);
+        const how = await shareFile(blob, `Order-${saved.number}.pdf`, text);
+        if (how === 'downloaded') notify('Order PDF downloaded. Attach it in WhatsApp.');
+      }
     } catch {
-      notify('The order picture could not be made.', 'error');
+      notify('The order could not be made into a file.', 'error');
     } finally {
       setBusy('');
     }
@@ -238,7 +256,7 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
                 <Share2 size={16} /> WhatsApp picture
               </button>
               <button className="btn" disabled={!!busy} onClick={() => share('pdf')}>
-                <Share2 size={16} /> WhatsApp PDF
+                <Share2 size={16} /> Receipt PDF
               </button>
               <button className="btn" disabled={!!busy} onClick={excel}>
                 <FileSpreadsheet size={16} /> Supplier Excel
@@ -335,8 +353,8 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
                       <option key={s}>{s}</option>
                     ))}
                   </select>
-                  <input disabled={locked} value={l.printName} onChange={(e) => setLine(i, { printName: e.target.value.toUpperCase() })} placeholder="Name to print" aria-label="Name to print" />
-                  <input disabled={locked} value={l.printNumber} inputMode="numeric" onChange={(e) => setLine(i, { printNumber: e.target.value.replace(/[^\d]/g, '').slice(0, 3) })} placeholder="Number" aria-label="Number to print" />
+                  <input disabled={locked} value={l.printName} onChange={(e) => setPrint(i, { printName: e.target.value.toUpperCase() })} placeholder="Name to print (optional)" aria-label="Name to print" />
+                  <input disabled={locked} value={l.printNumber} inputMode="numeric" onChange={(e) => setPrint(i, { printNumber: e.target.value.replace(/[^\d]/g, '').slice(0, 3) })} placeholder="Number (optional)" aria-label="Number to print" />
                 </div>
                 <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr] gap-2 items-center">
                   <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
@@ -346,7 +364,7 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
                       value={l.patchId || ''}
                       onChange={(e) => {
                         const pt = data.patches.find((x) => x.id === e.target.value);
-                        setLine(i, { patchId: pt?.id, patchPrice: pt?.price || 0 });
+                        setLine(i, { patchId: pt?.id, patchPrice: pt?.price || 0, patchCost: pt?.cost || 0 });
                       }}
                       aria-label="Patch"
                     >
@@ -368,7 +386,31 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
                     Price
                     <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: round2(Number(e.target.value) || 0) })} className="w-[96px]!" />
                   </label>
+                  {l.patchId && (
+                    <label className="flex items-center gap-1 text-[13px] col-span-2 sm:col-span-1 sm:col-start-3">
+                      Patch price
+                      <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={l.patchPrice} onChange={(e) => setLine(i, { patchPrice: round2(Number(e.target.value) || 0) })} className="w-[96px]!" />
+                    </label>
+                  )}
                 </div>
+                {/* Actual costs on this line (cost of sales), so the margin is true whatever the price. */}
+                <details className="text-[14px]">
+                  <summary className={`cursor-pointer ${lineMargin(l) < 0 ? 'text-[#b91c1c]' : 'text-[#555555]'}`}>
+                    Costs &amp; margin: cost {money(unitCostOf(l, data.products))} each · margin <b>{money(lineMargin(l))}</b>
+                    {lineTotal(l) ? ` (${Math.round((lineMargin(l) / lineTotal(l)) * 100)}%)` : ''}
+                  </summary>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <Field label="Kit cost">
+                      <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={l.unitCost ?? p?.cost ?? 0} onChange={(e) => setLine(i, { unitCost: round2(Math.max(0, Number(e.target.value) || 0)) })} />
+                    </Field>
+                    <Field label="Printing cost">
+                      <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={l.printCost ?? 0} onChange={(e) => setLine(i, { printCost: round2(Math.max(0, Number(e.target.value) || 0)) })} />
+                    </Field>
+                    <Field label="Patch cost">
+                      <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={l.patchCost ?? 0} onChange={(e) => setLine(i, { patchCost: round2(Math.max(0, Number(e.target.value) || 0)) })} />
+                    </Field>
+                  </div>
+                </details>
                 <div className="text-right font-bold tabular-nums">
                   {l.qty} × {money(l.unitPrice + (l.patchId ? l.patchPrice : 0))} = {money(lineTotal(l))}
                 </div>
@@ -384,6 +426,15 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
         {locked && <p className="text-[13px] text-[#555555]">Lines are locked once an order is {o.status}. Set it back to Open to change them.</p>}
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Packaging cost (optional)" className="w-[170px]">
+          <input disabled={locked} type="number" inputMode="decimal" step="0.01" value={o.packagingCost ?? ''} onChange={(e) => setO({ ...o, packagingCost: round2(Math.max(0, Number(e.target.value) || 0)) || undefined })} placeholder="0.00" />
+        </Field>
+        <p className={`pb-2 text-[14px] ${orderMarginNow < 0 ? 'text-[#b91c1c]' : 'text-[#555555]'}`}>
+          Cost of sales {money(round2(total - orderMarginNow))} · Margin <b>{money(orderMarginNow)}</b>
+          {total ? ` (${Math.round((orderMarginNow / total) * 100)}%)` : ''}
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-3 border-t border-[#111111] pt-2">
         <span className="text-[20px] font-bold mr-auto">Order total {money(total)}</span>
         {order && (
@@ -408,7 +459,8 @@ const OrderEditor: React.FC<{ order: SalesOrder | null; onClose: () => void }> =
             setO((x) => {
               const lines = [...x.lines];
               const cur = lines[picking] || blankLine();
-              lines[picking] = { ...cur, productId: pid, unitPrice: cur.productId === pid ? cur.unitPrice : p.price, version: cur.version || settings.versions[0] || '' };
+              const same = cur.productId === pid;
+              lines[picking] = { ...cur, productId: pid, unitPrice: same ? cur.unitPrice : p.price, unitCost: same ? cur.unitCost : p.cost, version: cur.version || settings.versions[0] || '' };
               return { ...x, lines };
             });
             setPicking(null);

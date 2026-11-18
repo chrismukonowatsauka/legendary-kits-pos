@@ -56,18 +56,28 @@ export const useStore = () => {
 };
 
 const DEFAULT_SETTINGS: Settings = {
-  shopName: 'Legendary Kits ZW',
+  shopName: 'SynFlow',
   currency: '$',
   backendUrl: '',
   backendKey: '',
   versions: ['Fan Version', 'Player Version', 'Retro', 'Kids'],
-  expenseCategories: ['Transport', 'Courier & shipping', 'Data & airtime', 'Packaging', 'Printing', 'Rent', 'Other'],
+  // A short list keeps reports consistent. Printing and packaging are cost of sales on orders, not expenses.
+  expenseCategories: ['Transport', 'Courier & shipping', 'Data & airtime', 'Advertising', 'Other'],
   seller: '',
+  printCost: 0,
 };
 const SETTINGS_KEY = 'lk:settings';
 const readSettings = (): Settings => {
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    const s: Settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    // Devices set up before the change list: new name, and the expense list without Rent/Printing/Packaging.
+    if (s.shopName === 'Legendary Kits ZW') s.shopName = 'SynFlow';
+    const dropped = ['Rent', 'Printing', 'Packaging'];
+    if (s.expenseCategories.some((c) => dropped.includes(c))) {
+      s.expenseCategories = s.expenseCategories.filter((c) => !dropped.includes(c));
+      if (!s.expenseCategories.includes('Advertising')) s.expenseCategories.splice(Math.max(0, s.expenseCategories.indexOf('Other')), 0, 'Advertising');
+    }
+    return s;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -112,6 +122,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     setCurrencySymbol(settings.currency);
   }, [settings.currency]);
+  // Keep any fix-ups made while reading the settings (new name, new expense list).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SETTINGS_KEY)) localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      /* storage blocked */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ---------- Load what this device holds ---------- */
   useEffect(() => {

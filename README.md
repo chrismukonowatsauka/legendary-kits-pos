@@ -1,4 +1,4 @@
-# Legendary Kits POS
+# SynFlow
 
 Till, sales orders and supplier orders for a football kit business. Mobile first; works on a PC with a
 barcode scanner. Hosted on GitHub Pages, data in Google Sheets (Apps Script), pictures in Google Drive.

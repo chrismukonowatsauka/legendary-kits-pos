@@ -35,6 +35,21 @@ export function customerBalance(c: Customer, sales: Sale[], payments: Payment[])
   return round2(owed - paid);
 }
 
+/* ---------- Cost of sales and margin ---------- */
+
+/** Cost of one shirt on a line: kit + printing + patch. Older lines without a kit cost use the product's cost. */
+export const unitCostOf = (l: { productId: string; unitCost?: number; printCost?: number; patchCost?: number }, products: Product[]) =>
+  round2((l.unitCost ?? products.find((p) => p.id === l.productId)?.cost ?? 0) + (l.printCost || 0) + (l.patchCost || 0));
+
+export const saleCost = (s: Sale, products: Product[]) => round2(s.lines.reduce((t, l) => t + l.qty * unitCostOf(l, products), 0) + (s.packagingCost || 0));
+export const saleMargin = (s: Sale, products: Product[]) => round2(s.total - saleCost(s, products));
+
+export const orderCost = (o: SalesOrder, products: Product[]) => round2(o.lines.reduce((t, l) => t + l.qty * unitCostOf(l, products), 0) + (o.packagingCost || 0));
+export const orderMargin = (o: SalesOrder, products: Product[]) => round2(o.total - orderCost(o, products));
+
+/** Margin as a percentage of the selling price ('' when nothing was sold). */
+export const marginPct = (margin: number, sales: number) => (sales ? `${Math.round((margin / sales) * 100)}%` : '');
+
 /* ---------- Sales orders ---------- */
 
 export const lineTotal = (l: OrderLine) => round2(l.qty * (l.unitPrice + (l.patchId ? l.patchPrice : 0)));
@@ -64,8 +79,8 @@ export function mergeForSupplier(orders: SalesOrder[], products: Product[], patc
           printNumber: l.printNumber.trim(),
           patchId: l.patchId,
           qty: l.qty,
-          unitCost: products.find((p) => p.id === l.productId)?.cost || 0,
-          patchCost: l.patchId ? patches.find((p) => p.id === l.patchId)?.cost || 0 : 0,
+          unitCost: l.unitCost ?? products.find((p) => p.id === l.productId)?.cost ?? 0,
+          patchCost: l.patchId ? (l.patchCost ?? patches.find((p) => p.id === l.patchId)?.cost ?? 0) : 0,
         });
     }
   return [...map.values()].sort((a, b) => a.productId.localeCompare(b.productId) || a.size.localeCompare(b.size));

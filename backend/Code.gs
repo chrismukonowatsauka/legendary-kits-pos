@@ -1,5 +1,5 @@
 /**
- * Legendary Kits POS: the Google Sheets backend.
+ * SynFlow: the Google Sheets backend.
  *
  * Paste this whole file into Extensions > Apps Script of your Google Sheet (see SETUP-GUIDE.md).
  * Each table is one tab. Every row keeps the full record in the last column ("json") so nothing is lost;
@@ -27,7 +27,7 @@ var FIXED = ['id', 'syncedAt', 'updatedAt', 'deleted'];
 
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('Kits POS')
+    .createMenu('SynFlow')
     .addItem('1. Set up (run once)', 'setup')
     .addItem('Show my key', 'showKey')
     .addItem('Back up now', 'backup')
@@ -48,8 +48,8 @@ function setup() {
   var def = ss.getSheetByName('Sheet1');
   if (def && ss.getSheets().length > 1 && def.getLastRow() === 0) ss.deleteSheet(def);
   if (!props.getProperty('KEY')) props.setProperty('KEY', Utilities.getUuid().replace(/-/g, '').slice(0, 20));
-  if (!props.getProperty('IMG_FOLDER')) props.setProperty('IMG_FOLDER', DriveApp.createFolder('Legendary Kits POS – Pictures').getId());
-  if (!props.getProperty('BACKUP_FOLDER')) props.setProperty('BACKUP_FOLDER', DriveApp.createFolder('Legendary Kits POS – Backups').getId());
+  if (!props.getProperty('IMG_FOLDER')) props.setProperty('IMG_FOLDER', DriveApp.createFolder('SynFlow – Pictures').getId());
+  if (!props.getProperty('BACKUP_FOLDER')) props.setProperty('BACKUP_FOLDER', DriveApp.createFolder('SynFlow – Backups').getId());
   ScriptApp.getProjectTriggers().forEach(function (tr) {
     if (tr.getHandlerFunction() === 'backup') ScriptApp.deleteTrigger(tr);
   });
@@ -68,7 +68,7 @@ function backup() {
   var props = PropertiesService.getScriptProperties();
   var folder = DriveApp.getFolderById(props.getProperty('BACKUP_FOLDER'));
   var file = DriveApp.getFileById(props.getProperty('SHEET_ID'));
-  file.makeCopy('Kits POS backup ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), folder);
+  file.makeCopy('SynFlow backup ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'), folder);
   var cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   var old = folder.getFiles();
   while (old.hasNext()) {
@@ -80,14 +80,14 @@ function backup() {
 /* ---------------- Web app ---------------- */
 
 function doGet() {
-  return out({ ok: true, info: 'Legendary Kits POS backend is running. Open the app to use it.' });
+  return out({ ok: true, info: 'SynFlow backend is running. Open the app to use it.' });
 }
 
 function doPost(e) {
   try {
     var req = JSON.parse(e.postData.contents);
     var props = PropertiesService.getScriptProperties();
-    if (!props.getProperty('KEY') || req.key !== props.getProperty('KEY')) return out({ ok: false, error: 'Wrong key. Copy it again from the Sheet: Kits POS > Show my key.' });
+    if (!props.getProperty('KEY') || req.key !== props.getProperty('KEY')) return out({ ok: false, error: 'Wrong key. Copy it again from the Sheet: SynFlow > Show my key.' });
     switch (req.action) {
       case 'ping':
         return out({ ok: true, sheet: book().getName(), serverTime: new Date().toISOString() });
@@ -120,7 +120,7 @@ function book() {
 function sheetFor(table) {
   if (!TABLES[table]) throw new Error('Unknown table ' + table);
   var sh = book().getSheetByName(table);
-  if (!sh) throw new Error('Tab "' + table + '" is missing. Run Kits POS > Set up again.');
+  if (!sh) throw new Error('Tab "' + table + '" is missing. Run SynFlow > Set up again.');
   return sh;
 }
 

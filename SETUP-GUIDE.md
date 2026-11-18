@@ -1,4 +1,4 @@
-# Legendary Kits POS: setup guide
+# SynFlow: setup guide
 
 This puts your till app on the internet (free, on GitHub Pages) and keeps all your records in a Google Sheet,
 so your phone and your laptop always show the same sales, orders and expenses.
@@ -11,31 +11,31 @@ You do this once. It takes about 30 minutes. No coding is needed: you copy, past
 
 ## Part 1: The Google Sheet (your database)
 
-1. Go to **sheets.google.com** and create a **Blank spreadsheet**. Name it, e.g. *Legendary Kits POS*.
+1. Go to **sheets.google.com** and create a **Blank spreadsheet**. Name it, e.g. *SynFlow*.
 2. In the Sheet, click **Extensions → Apps Script**. A new tab opens with a code editor.
 3. Delete everything in the editor (the few lines that are already there).
 4. Open the file **backend/Code.gs** from this folder (with Notepad), select all (Ctrl+A), copy (Ctrl+C),
    and paste it into the Apps Script editor (Ctrl+V).
-5. Click the **Save** icon (the floppy disk). Name the project *Kits POS* if it asks.
-6. Go back to the Sheet tab and **reload the page** (F5). After a few seconds a new menu, **Kits POS**, appears
+5. Click the **Save** icon (the floppy disk). Name the project *SynFlow* if it asks.
+6. Go back to the Sheet tab and **reload the page** (F5). After a few seconds a new menu, **SynFlow**, appears
    next to Help.
-7. Click **Kits POS → 1. Set up (run once)**.
+7. Click **SynFlow → 1. Set up (run once)**.
    - Google asks for permission: click **Continue**, choose your account.
    - You'll see "Google hasn't verified this app". That's normal: it's your own script. Click **Advanced**,
-     then **Go to Kits POS (unsafe)**, then **Allow**.
-   - Click **Kits POS → 1. Set up** again if it didn't finish.
+     then **Go to SynFlow (unsafe)**, then **Allow**.
+   - Click **SynFlow → 1. Set up** again if it didn't finish.
 8. A box shows **your key** (a mix of letters and numbers). Copy it somewhere safe. You can see it again any time with
-   **Kits POS → Show my key**.
+   **SynFlow → Show my key**.
 
-Setup has made one tab per table (products, sales, salesOrders…), a Drive folder **Legendary Kits POS – Pictures**
-for kit photos, a folder **Legendary Kits POS – Backups**, and a nightly backup (2am, last 30 days kept).
+Setup has made one tab per table (products, sales, salesOrders…), a Drive folder **SynFlow – Pictures**
+for kit photos, a folder **SynFlow – Backups**, and a nightly backup (2am, last 30 days kept).
 
 ## Part 2: Turn the script into a web address
 
 1. In the Apps Script tab, click **Deploy → New deployment**.
 2. Click the gear icon next to "Select type" and choose **Web app**.
 3. Fill in:
-   - Description: *Kits POS*
+   - Description: *SynFlow*
    - Execute as: **Me**
    - Who has access: **Anyone**. The app needs this to reach it; nobody can read or change anything without your key.
 4. Click **Deploy**, allow access again if asked, then copy the **Web app URL**. It starts with
@@ -93,8 +93,8 @@ Without signal the app keeps working; changes wait on the phone ("3 to send") an
 
 ## Backups
 
-Every night at about 2am a full copy of the Sheet is saved to **Legendary Kits POS – Backups** in your Google Drive.
-To take one now: **Kits POS → Back up now**. To restore, open a backup copy and copy its tabs back into the main Sheet
+Every night at about 2am a full copy of the Sheet is saved to **SynFlow – Backups** in your Google Drive.
+To take one now: **SynFlow → Back up now**. To restore, open a backup copy and copy its tabs back into the main Sheet
 (or ask for help).
 
 ## Good to know
@@ -109,7 +109,7 @@ To take one now: **Kits POS → Back up now**. To restore, open a backup copy an
 
 | What you see | What to do |
 |---|---|
-| "Wrong key" | Copy the key again: Sheet → Kits POS → Show my key. |
+| "Wrong key" | Copy the key again: Sheet → SynFlow → Show my key. |
 | "No connection to Google" | Check the internet. Your work is kept on the phone and sends later. |
 | "Google sent back something unexpected" | The web address is wrong, or Part 2 "Who has access" isn't **Anyone**. |
 | Camera doesn't open | Allow the camera for the site in the browser settings. The app must be opened from the https link. |

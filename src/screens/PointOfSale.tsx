@@ -7,6 +7,8 @@ import type { Product, Sale, SaleLine } from '../lib/types';
 import { CameraScanner } from '../components/CameraScanner';
 import { Field, Modal, Numpad, ScreenBar, Thumb } from '../components/ui';
 import { ReceiptShare } from './SaleView';
+import { CustomiseFields } from '../components/Customise';
+import { unitCostOf } from '../lib/ledger';
 
 const CART_KEY = 'lk:cart';
 
@@ -34,6 +36,7 @@ export const PointOfSale: React.FC = () => {
   const [paying, setPaying] = useState(false);
   const [padFor, setPadFor] = useState<{ i: number; field: 'qty' | 'price'; value: string } | null>(null);
   const [done, setDone] = useState<Sale | null>(null);
+  const [custom, setCustom] = useState<number | null>(null);
   const search = useRef<HTMLInputElement>(null);
   const touch = isTouch();
 
@@ -50,7 +53,7 @@ export const PointOfSale: React.FC = () => {
   };
   useEffect(refocus, []); // eslint-disable-line react-hooks/exhaustive-deps
   // A scan that arrives while the cursor is elsewhere (e.g. after tapping the numpad) still lands in the search box.
-  const dialogOpen = scan || paying || cartOpen || !!padFor || !!done;
+  const dialogOpen = scan || paying || cartOpen || !!padFor || !!done || custom !== null;
   useEffect(() => {
     if (touch || dialogOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -73,13 +76,14 @@ export const PointOfSale: React.FC = () => {
 
   const add = (p: Product, size?: string) => {
     setCart((c) => {
-      const i = c.findIndex((l) => l.productId === p.id && (l.size || '') === (size || ''));
+      // The same kit and size adds to its line, unless that line has printing or a patch.
+      const i = c.findIndex((l) => l.productId === p.id && (l.size || '') === (size || '') && !l.printName && !l.printNumber && !l.patchId);
       if (i >= 0) {
         setSel(i);
         return c.map((l, j) => (j === i ? { ...l, qty: l.qty + 1 } : l));
       }
       setSel(c.length);
-      return [...c, { productId: p.id, name: p.name, code: p.code, size, qty: 1, price: p.price }];
+      return [...c, { productId: p.id, name: p.name, code: p.code, size, qty: 1, price: p.price, unitCost: p.cost }];
     });
     setQ('');
     refocus();
@@ -111,37 +115,49 @@ export const PointOfSale: React.FC = () => {
         {cart.length === 0 && <p className="text-[#777777] p-6 text-center">Scan or tap a kit to start a sale.</p>}
         {cart.map((l, i) => {
           const p = products.find((x) => x.id === l.productId);
+          const extras = [l.printName, l.printNumber && `#${l.printNumber}`, l.patchId && (data.patches.find((x) => x.id === l.patchId)?.name || 'Patch')].filter(Boolean).join(' · ');
           return (
-            <div key={i} className={`p-3 flex gap-3 items-center ${sel === i ? 'bg-[#f2f2f2]' : ''}`} onClick={() => setSel(i)}>
-              <Thumb id={p?.imageId} size={44} />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold truncate">{l.name}</div>
-                <div className="flex items-center gap-2 text-[13px] text-[#555555]">
-                  {p && p.sizes.length > 0 ? (
-                    <select value={l.size || ''} onChange={(e) => setLine(i, { size: e.target.value })} className="w-auto! min-h-[32px]! py-0! text-[13px]" aria-label="Size" onClick={(e) => e.stopPropagation()}>
-                      <option value="">Size</option>
-                      {p.sizes.map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <button type="button" className="underline tabular-nums" onClick={(e) => (e.stopPropagation(), setPadFor({ i, field: 'price', value: String(l.price) }))}>
-                    {money(l.price)}
+            <div key={i} className={`p-3 space-y-2 ${sel === i ? 'bg-[#f2f2f2]' : ''}`} onClick={() => setSel(i)}>
+              {/* Row 1: picture, full name, line total */}
+              <div className="flex gap-3 items-start">
+                <Thumb id={p?.imageId} size={44} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold leading-snug break-words">{l.name}</div>
+                  {extras && <div className="text-[13px] text-[#555555] break-words">{extras}</div>}
+                </div>
+                <div className="shrink-0 text-right font-bold tabular-nums">{money(l.qty * l.price)}</div>
+              </div>
+              {/* Row 2: size, price, quantity, customise, remove. Wraps rather than overlapping on narrow screens. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-[56px] text-[14px]">
+                {p && p.sizes.length > 0 && (
+                  <select value={l.size || ''} onChange={(e) => setLine(i, { size: e.target.value })} className="w-auto! min-h-[36px]! py-0! text-[14px]" aria-label="Size" onClick={(e) => e.stopPropagation()}>
+                    <option value="">Size</option>
+                    {p.sizes.map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
+                <button type="button" className="underline tabular-nums min-h-[36px]" title="Change the price" onClick={(e) => (e.stopPropagation(), setPadFor({ i, field: 'price', value: String(l.price) }))}>
+                  {money(l.price)} each
+                </button>
+                <div className="flex items-center gap-1">
+                  <button type="button" className="btn px-2! min-h-[36px]!" aria-label="One less" onClick={(e) => (e.stopPropagation(), l.qty > 1 ? setLine(i, { qty: l.qty - 1 }) : removeLine(i))}>
+                    <Minus size={16} />
+                  </button>
+                  <button type="button" className="btn px-2! min-h-[36px]! min-w-[44px] tabular-nums" aria-label="Quantity" onClick={(e) => (e.stopPropagation(), setPadFor({ i, field: 'qty', value: String(l.qty) }))}>
+                    {l.qty}
+                  </button>
+                  <button type="button" className="btn px-2! min-h-[36px]!" aria-label="One more" onClick={(e) => (e.stopPropagation(), setLine(i, { qty: l.qty + 1 }))}>
+                    <Plus size={16} />
                   </button>
                 </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button type="button" className="btn px-2!" aria-label="One less" onClick={(e) => (e.stopPropagation(), l.qty > 1 ? setLine(i, { qty: l.qty - 1 }) : removeLine(i))}>
-                  <Minus size={16} />
+                <button type="button" className="underline min-h-[36px]" onClick={(e) => (e.stopPropagation(), setCustom(i))}>
+                  Customise
                 </button>
-                <button type="button" className="btn px-2! min-w-[48px] tabular-nums" aria-label="Quantity" onClick={(e) => (e.stopPropagation(), setPadFor({ i, field: 'qty', value: String(l.qty) }))}>
-                  {l.qty}
-                </button>
-                <button type="button" className="btn px-2!" aria-label="One more" onClick={(e) => (e.stopPropagation(), setLine(i, { qty: l.qty + 1 }))}>
-                  <Plus size={16} />
+                <button type="button" className="underline text-[#b91c1c] min-h-[36px]" onClick={(e) => (e.stopPropagation(), removeLine(i))}>
+                  Remove
                 </button>
               </div>
-              <div className="w-[84px] text-right font-bold tabular-nums">{money(l.qty * l.price)}</div>
             </div>
           );
         })}
@@ -272,6 +288,7 @@ export const PointOfSale: React.FC = () => {
       {paying && (
         <Checkout
           total={total}
+          cost={round2(cart.reduce((s, l) => s + l.qty * unitCostOf(l, data.products), 0))}
           onClose={() => (setPaying(false), refocus())}
           onPaid={(pay) => {
             const sale = save('sales', {
@@ -295,6 +312,29 @@ export const PointOfSale: React.FC = () => {
         />
       )}
       {done && <ReceiptShare sale={done} onClose={() => (setDone(null), refocus())} />}
+
+      {custom !== null && cart[custom] && (
+        <Modal
+          title={`Customise · ${cart[custom].name}`}
+          onClose={() => (setCustom(null), refocus())}
+          footer={
+            <button className="btn btn-primary" onClick={() => (setCustom(null), refocus())}>
+              Done
+            </button>
+          }
+        >
+          <Field label="Selling price per shirt (everything included)">
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              value={cart[custom].price}
+              onChange={(e) => setLine(custom, { price: round2(Math.max(0, Number(e.target.value) || 0)) })}
+            />
+          </Field>
+          <CustomiseFields value={cart[custom]} onChange={(p) => setLine(custom, p)} sellEach={cart[custom].price} qty={cart[custom].qty} />
+        </Modal>
+      )}
     </div>
   );
 };
@@ -328,8 +368,11 @@ const ProductTile: React.FC<{ p: Product; onAdd: (p: Product, size?: string) => 
 };
 
 /** Payment: which account the money goes into, how much is paid now, and the rest on a customer's account. */
-const Checkout: React.FC<{ total: number; onClose: () => void; onPaid: (p: Pick<Sale, 'paid' | 'accountId' | 'onAccount' | 'customerId' | 'customerName'>) => void }> = ({ total, onClose, onPaid }) => {
+const Checkout: React.FC<{ total: number; cost: number; onClose: () => void; onPaid: (p: Pick<Sale, 'paid' | 'accountId' | 'onAccount' | 'customerId' | 'customerName' | 'packagingCost'>) => void }> = ({ total, cost, onClose, onPaid }) => {
   const { data, save, notify } = useStore();
+  const [packaging, setPackaging] = useState('');
+  const pack = round2(Math.max(0, Number(packaging) || 0));
+  const margin = round2(total - cost - pack);
   const accounts = data.accounts.filter((a) => a.active !== false);
   const [accountId, setAccountId] = useState(() => localStorage.getItem('lk:lastAccount') || accounts[0]?.id || '');
   const [tendered, setTendered] = useState(String(total));
@@ -360,7 +403,7 @@ const Checkout: React.FC<{ total: number; onClose: () => void; onPaid: (p: Pick<
               } catch {
                 /* ignore */
               }
-              onPaid({ paid: round2(paid), accountId: paid ? accountId : undefined, onAccount: short, customerId: customer?.id, customerName: customer?.name });
+              onPaid({ paid: round2(paid), accountId: paid ? accountId : undefined, onAccount: short, customerId: customer?.id, customerName: customer?.name, packagingCost: pack || undefined });
             }}
           >
             Complete sale
@@ -389,6 +432,15 @@ const Checkout: React.FC<{ total: number; onClose: () => void; onPaid: (p: Pick<
         </button>
       </div>
       {change > 0 && <p className="text-[20px] font-bold">Change: {money(change)}</p>}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Packaging cost (optional)" className="w-[160px]">
+          <input type="number" inputMode="decimal" step="0.01" value={packaging} onChange={(e) => setPackaging(e.target.value)} placeholder="0.00" />
+        </Field>
+        <p className={`pb-2 text-[14px] ${margin < 0 ? 'text-[#b91c1c]' : 'text-[#555555]'}`}>
+          Cost of sales {money(cost + pack)} · Margin <b>{money(margin)}</b>
+          {total ? ` (${Math.round((margin / total) * 100)}%)` : ''}
+        </p>
+      </div>
       {short > 0 && (
         <div className="border border-[#cccccc] rounded-[8px] p-3 space-y-2">
           <p className="font-semibold">{money(short)} goes on the customer's account</p>

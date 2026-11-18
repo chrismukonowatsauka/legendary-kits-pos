@@ -94,6 +94,9 @@ export const SettingsScreen: React.FC = () => {
             <Field label="Your name on this device" hint="Saved on each sale as Sold by.">
               <input value={settings.seller} onChange={(e) => saveSettings({ seller: e.target.value })} />
             </Field>
+            <Field label="Usual printing cost per shirt" hint="Filled in when a name or number is added; change it on any line.">
+              <input type="number" inputMode="decimal" step="0.01" value={settings.printCost ?? 0} onChange={(e) => saveSettings({ printCost: Math.max(0, Number(e.target.value) || 0) })} className="w-[120px]!" />
+            </Field>
           </div>
           <ListEditor label="Kit versions" items={settings.versions} onChange={(versions) => saveSettings({ versions })} />
           <ListEditor label="Expense categories" items={settings.expenseCategories} onChange={(expenseCategories) => saveSettings({ expenseCategories })} />
